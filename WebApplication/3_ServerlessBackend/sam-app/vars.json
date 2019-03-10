@@ -1,0 +1,5 @@
+{
+  "RequestUnicornFunction": {
+    "TABLE_NAME": "{ -- replace with RequestUnicornTable output after deploying the stack }"
+  }
+}

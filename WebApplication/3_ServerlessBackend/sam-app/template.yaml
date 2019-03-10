@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sam-app
+
+  Template for aws-serverless-workshops 3_ServerlessBackend
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    CodeUri: serverless-backend
+    Runtime: nodejs8.10
+    Timeout: 3
+
+Resources:
+  RequestUnicornTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: RideId
+        Type: String
+      SSESpecification:
+        SSEEnabled: true
+
+  RequestUnicornFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: requestUnicorn.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RequestUnicornTable
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref RequestUnicornTable
+
+Outputs:
+  RequestUnicornTable:
+    Value: !Ref RequestUnicornTable
+  RequestUnicornFunction:
+    Value: !Ref RequestUnicornFunction
