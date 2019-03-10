@@ -98,49 +98,54 @@ Resources:
     Properties:
       Description: Updates object on S3 for client-side configuration
       Handler: index.handler
-      Runtime: python2.7
+      Runtime: python3.7
       Role: !GetAtt CognitoConfigRole.Arn
       Timeout: 120
       Code:
         ZipFile: |
-          import json
+          from pprint import pformat
           import boto3
           import cfnresponse
 
           s3 = boto3.resource('s3')
+
+          import logging
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
 
           def create(properties, physical_id):
             userPoolId = properties['UserPool']
             clientId = properties['Client']
             region = properties['Region']
             bucket = properties['Bucket']
-
-            object = s3.Object(bucket, 'js/config.js')
-            config_content = """
-          var _config = {
-              cognito: {
-                  userPoolId: '%s', // e.g. us-east-2_uXboG5pAb
-                  userPoolClientId: '%s', // e.g. 25ddkmj4v6hfsfvruhpfi7n4hv
-                  region: '%s', // e.g. us-east-2
-              },
-              api: {
+            config_key = 'js/config.js'
+            logger.info(f'Creating {bucket}/{config_key}')
+            config_content = f"""
+          var _config = {{
+              cognito: {{
+                  userPoolId: '{userPoolId}',     // e.g. us-east-2_uXboG5pAb
+                  userPoolClientId: '{clientId}', // e.g. 25ddkmj4v6hfsfvruhpfi7n4hv
+                  region: '{region}',             // e.g. us-east-2
+              }},
+              api: {{
                   invokeUrl: '', // Base URL of your API including the stage, e.g. 'https://rc7nyt4tql.execute-api.us-west-2.amazonaws.com/prod'
-              }
-          };
+              }}
+          }};
               """
-            config_content = config_content % (userPoolId, clientId, region)
-            config = s3.Object(bucket,'js/config.js')
+            config = s3.Object(bucket, config_key)
             config.put(Body=config_content)
-            return cfnresponse.SUCCESS, None
+            logger.info(f'Created {config}')
+            return (cfnresponse.SUCCESS, None)
 
           def update(properties, physical_id):
             return create(properties, physical_id)
 
           def delete(properties, physical_id):
-            return cfnresponse.SUCCESS, physical_id
+            logger.info('Delete is a No Op')
+            return (cfnresponse.SUCCESS, physical_id)
 
           def handler(event, context):
-            print "Received event: %s" % json.dumps(event)
+            logger.info(f'Received event: {pformat(event)}')
 
             status = cfnresponse.FAILED
             new_physical_id = None
@@ -149,13 +154,13 @@ Resources:
               properties = event.get('ResourceProperties')
               physical_id = event.get('PhysicalResourceId')
 
-              status, new_physical_id = {
+              (status, new_physical_id) = {
                 'Create': create,
                 'Update': update,
                 'Delete': delete
               }.get(event['RequestType'], lambda x, y: (cfnresponse.FAILED, None))(properties, physical_id)
             except Exception as e:
-              print "Exception: %s" % e
+              logger.exception(f'Failed to {event["RequestType"]} resource')
               status = cfnresponse.FAILED
             finally:
               cfnresponse.send(event, context, status, {}, new_physical_id)
